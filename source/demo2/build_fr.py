@@ -1,10 +1,14 @@
 import subprocess as sp, textwrap, struct
 import os as _os
 ROOT=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+import sys
+sys.path.insert(0, ROOT)
+from speech import pcm
+from narration import scene_duration, write_manifest
 A=lambda f:_os.path.join(ROOT,'assets',f)
 LANG='fr'
-WORK=_os.path.join(ROOT,'build','demo2-'+LANG); _os.makedirs(WORK,exist_ok=True); _os.chdir(WORK)
-OUT=_os.path.join(ROOT,'output',LANG.upper()); _os.makedirs(OUT,exist_ok=True)
+WORK=_os.path.join(ROOT,'build','demo2-'+LANG)
+OUT=_os.path.join(ROOT,'output',LANG.upper())
 from PIL import Image, ImageDraw, ImageFont
 W,H,FPS=1920,1080,30
 BG=(13,17,23); PANEL=(22,27,34); WHITE=(240,246,252); GREY=(139,148,158)
@@ -22,9 +26,7 @@ def phon(t):
     return t
 def tts(i,txt):
     txt=phon(txt)
-    sp.run(['say','-v','Thomas','-r','175','-o',f'a{i}.aiff',txt],check=True)
-    raw=sp.check_output(['ffmpeg','-v','error','-i',f'a{i}.aiff','-f','s16le','-ac','1','-ar',str(SR),'-'])
-    return raw
+    return pcm(txt,LANG,f'a{i}.wav',SR)
 
 def frame_base(step,title):
     im=Image.new('RGB',(W,H),BG); d=ImageDraw.Draw(im)
@@ -189,19 +191,40 @@ S=[
  ("Une seule ligne change dans le manifeste. Les quatre skills, elles, ne changent pas.",P(4,T('BONUS','Et Databricks ?',[('out','platform:'),('ok','  engine: "databricks"')],note='# Une ligne. Les 4 skills ne changent pas.'))),
  ("C'est tout l'intérêt : on écrit les skills une fois, et elles marchent partout.",P(4,T('BONUS','Et Databricks ?',[('out','platform:'),('ok','  engine: "databricks"')],note='# Écrites une fois. Elles marchent partout.'))),
 ]
-audio=bytearray()
-ff=sp.Popen(['ffmpeg','-y','-v','error','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','-','-c:v','libx264','-pix_fmt','yuv420p','-crf','20','video.mp4'],stdin=sp.PIPE)
-for i,(txt,fn) in enumerate(S):
-    raw=tts(i,txt); a=len(raw)/2/SR
-    lead=0.4; tail=1.0; D=lead+a+tail
-    audio+=b'\0\0'*int(lead*SR)+raw+b'\0\0'*(int(D*SR)-int(lead*SR)-len(raw)//2)
-    n=int(round(D*FPS)); cache={}
-    for k in range(n):
-        im,d=fn(k/FPS,i); subtitle(d,txt); b=im.tobytes()
-        ff.stdin.write(b)
-    print(i,round(D,1),flush=True)
-ff.stdin.close(); ff.wait()
-open('audio.raw','wb').write(audio)
-sp.run('ffmpeg -y -v error -i video.mp4 -f s16le -ar 48000 -ac 1 -i audio.raw -c:v copy -c:a aac -b:a 160k -shortest out.mp4',shell=True,check=True)
-import shutil; shutil.copy('out.mp4',_os.path.join(OUT,'demo2-dataforge-FR.mp4'))
-print('done',dur('out.mp4'))
+
+def build():
+    _os.makedirs(WORK,exist_ok=True); _os.makedirs(OUT,exist_ok=True); _os.chdir(WORK)
+    segments=[tts(i,txt) for i,(txt,_) in enumerate(S)]
+    audio=bytearray()
+    cues=[]
+    offset=0
+    ff=sp.Popen(['ffmpeg','-y','-v','error','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','-','-c:v','libx264','-pix_fmt','yuv420p','-crf','20','video.mp4'],stdin=sp.PIPE)
+    try:
+        for i,(txt,fn) in enumerate(S):
+            raw=segments[i]; a=len(raw)/2/SR
+            lead=0.4; tail=1.0; D=scene_duration(0,a,lead=lead,tail=tail,fps=FPS)
+            samples=round(D*SR)
+            audio+=b'\0\0'*int(lead*SR)+raw+b'\0\0'*(samples-int(lead*SR)-len(raw)//2)
+            n=round(D*FPS)
+            for k in range(n):
+                im,d=fn(k/FPS,i); subtitle(d,txt)
+                ff.stdin.write(im.tobytes())
+            cues.append(dict(text=txt,spoken_text=phon(txt),wav=_os.path.abspath(f'a{i}.wav'),
+                start=offset,duration=D,audio_start=offset+lead,audio_duration=a))
+            offset+=D
+            print(i,round(D,1),flush=True)
+    finally:
+        ff.stdin.close()
+        returncode=ff.wait()
+    if returncode:
+        raise RuntimeError("ffmpeg failed to encode the demo video")
+    open('audio.raw','wb').write(audio)
+    sp.run(['ffmpeg','-y','-v','error','-i','video.mp4','-f','s16le','-ar',str(SR),'-ac','1','-i','audio.raw','-c:v','copy','-c:a','aac','-b:a','160k','-movflags','+faststart','out.mp4'],check=True)
+    import shutil
+    output=_os.path.join(OUT,f'demo2-dataforge-{LANG.upper()}.mp4')
+    shutil.copy('out.mp4',output)
+    write_manifest(output,LANG,cues)
+    print('done',dur('out.mp4'))
+
+if __name__=='__main__':
+    build()

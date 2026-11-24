@@ -22,7 +22,11 @@ Each language folder contains the same 16-slide deck with speaker notes and embe
 **Timing:** slides 1–14 ≈ 25 min → leaves ~8 min for Q&A in a 35-min slot.
 
 **Notes**
-- Narration is synthetic (macOS voices). Demo 1 in EN is the original recording.
+- All three demos use local female voices: Kokoro `bf_emma` (British English),
+  `ff_siwis` (French), `ef_dora` (Spanish), and NVIDIA Magpie `Sofia` (German).
+  The decks embed the same rebuilt videos provided alongside them.
+- Builds use an isolated Python environment. Scenes can run longer to fit complete,
+  natural-paced narration; see the source setup and full-rebuild instructions.
 - The demo 3 screen recording shows the VS Code chat in French; narration and subtitles are translated.
 
 **Sources**

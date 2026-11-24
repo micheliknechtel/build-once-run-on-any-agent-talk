@@ -1,10 +1,14 @@
 import subprocess as sp, textwrap, re, os
 import os as _os
 ROOT=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+import sys
+sys.path.insert(0, ROOT)
+from speech import synthesize
+from narration import narration_text, scene_duration, write_audio_track, write_manifest
 A=lambda f:_os.path.join(ROOT,'assets',f)
 LANG='es'
-WORK=_os.path.join(ROOT,'build','demo3-'+LANG); _os.makedirs(WORK,exist_ok=True); _os.chdir(WORK)
-OUT=_os.path.join(ROOT,'output',LANG.upper()); _os.makedirs(OUT,exist_ok=True)
+WORK=_os.path.join(ROOT,'build','demo3-'+LANG)
+OUT=_os.path.join(ROOT,'output',LANG.upper())
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 SRC=A('demo3-screen-recording.mov')
 W,H=1920,1200; VW,VH,VX=1600,1000,160; S=VW/1440
@@ -16,6 +20,7 @@ PARTS={1:('PARTE 1 · VS CODE ENCUENTRA LAS SKILLS',(31,111,235)),2:("PARTE 2 ·
 PHON=[('forge-dbx','fordje dé-bé-ixe'),('forge','fordje'),('VS Code','vi-èss caude'),('Copilot','co-païlote'),('pull request','poule ri-couest'),('skills','skiles'),('skill','skile'),('SQL','èss-kiou-èl'),('DuckDB','deuk-dé-bé'),('duckdb','deuk-dé-bé'),('databricks','déta-brixe'),('hook','houk'),('commit','co-mitte')]
 PHON=[('DuckDB','duck de be'),('duckdb','duck de be'),('SQL','ese cu ele'),('forge-dbx','forch de be equis'),('forge','forch'),('pull request','pul ricuest')]
 def phon(t):
+    t=t.replace('/forge', 'barra forge')
     for a,b in PHON: t=re.sub(r'(?<![\w-])'+re.escape(a)+r'(?![\w-])',b,t,flags=re.I)
     return t
 def dur(f): return float(sp.check_output(f'ffprobe -v error -show_entries format=duration -of csv=p=0 "{f}"',shell=True))
@@ -41,51 +46,64 @@ def box(b,t0,t1,col='0xFFD400'):
 SEG=[
  dict(card=('DEMO 3','Misma carpeta, mismas skills, otro agente: VS Code',A('demo3-card-start.png')),part=None,
       say="Demo tres. Misma carpeta, mismas skills, pero otro agente: Copilot en VS Code. No se ha reescrito nada."),
- dict(a=29,b=41,k=1,part=1,say="Escribo barra forge: ahí están las cuatro skills. VS Code las encuentra solo, por su nombre y su descripción.",
+ dict(a=29,b=41,k=1,part=1,
       sub="Escribo /forge: ahí están las 4 skills. VS Code las encuentra solo, por su nombre y su descripción.",boxes=[((978,530,1412,612),0.5,99)]),
  dict(a=44,b=60,k=3,part=2,sub="Pido: cuenta las incidencias en DuckDB… y abre una pull request enseguida."),
  dict(a=60,b=86,k=8,part=2,sub="Pido: cuenta las incidencias en DuckDB… y abre una pull request enseguida."),
- dict(a=86,b=98,k=1,part=2,say="Antes de cada comando, VS Code pide permiso. Una lectura de DuckDB: la permito.",
+ dict(a=86,b=98,k=1,part=2,
       sub="Antes de cada comando, VS Code pide permiso. Una lectura de DuckDB: la permito.",boxes=[((1158,450,1422,725),0,99),((1164,700,1260,724),5,99)]),
  dict(a=98,b=298,k=20,part=2,sub="El agente sigue las skills forge: lee, comprueba, valida el manifest…"),
- dict(a=298,b=314,k=1,part=2,say="Luego el agente quiere hacer commit y abrir una pull request, demasiado pronto. Me niego. Los permisos no los decide la skill, los decide la herramienta.",
+ dict(a=298,b=314,k=1,part=2,
       sub="El agente quiere hacer commit y abrir una pull request, demasiado pronto. Me niego (Skip). Los permisos los decide la herramienta, no la skill.",
       boxes=[((1158,400,1422,695),0,9.5),((1260,668,1326,694),9.5,13.5)]),
- dict(a=317,b=329,k=1,part=2,say="Resultado: doscientas siete incidencias sin resolver, cincuenta y cuatro resueltas.",
+ dict(a=317,b=329,k=1,part=2,
       sub="Resultado: 207 incidencias sin resolver, 54 resueltas. Y la PR no se ha creado.",boxes=[((1160,484,1422,526),1,99)]),
  dict(a=336,b=358,k=4,part=3,sub="En el terminal, ejecuto el programa que prepara el trabajo…"),
- dict(a=358,b=372,k=1,part=3,say="El programa que prepara el trabajo solo escribe SQL. Nunca toca la base de datos. Solo la skill forge-dbx habla con el warehouse, así que puedes revisarlo todo antes.",
+ dict(a=358,b=372,k=1,part=3,
       sub="El programa solo escribe SQL. Nunca toca la base de datos. Solo la skill forge-dbx habla con el warehouse: puedes revisarlo todo antes.",boxes=[((362,525,1135,840),0,99)]),
- dict(a=380,b=392,k=1,part=4,say="En el manifest, duckdb pasa a ser databricks. Una línea. No cambia ninguna skill, fase ni hook.",
+ dict(a=380,b=392,k=1,part=4,
       sub="En el manifest, duckdb pasa a ser databricks. Una línea. No cambia ninguna skill, fase ni hook.",boxes=[((380,518,640,544),5.5,99)]),
- dict(a=392,b=398,k=1,part=4,say="Escribes las skills una vez, y funcionan en cualquier agente.",
+ dict(a=392,b=398,k=1,part=4,
       sub="Escribes las skills una vez, y funcionan en cualquier agente.",boxes=[((380,518,640,544),0,99)]),
  dict(card=('Build once, run on any agent','Mismas skills · otro agente · una línea para cambiar de motor',A('demo3-card-end.png')),part=None,pause=3.5),
 ]
-parts=[]
-for i,s in enumerate(SEG):
-    ad=0
-    if s.get('say'):
-        sp.run(['say','-v','Mónica','-r','175','-o',f'a{i}.aiff',phon(s['say'])],check=True); ad=dur(f'a{i}.aiff')
-    out=f'seg{i}.mp4'
-    if 'card' in s:
-        card(i,*s['card']); D=max(ad+1.2,s.get('pause',0))
-        vin=['-loop','1','-t',f'{D}','-i',f'card{i}.png']; vf='format=yuv420p'
-    else:
-        band(i,s['part'],s.get('sub'),s['k'] if s['k']>1 else None)
-        vd=(s['b']-s['a'])/s['k']; D=max(vd,ad+0.8)
-        fl=[f"setpts=(PTS-STARTPTS)/{s['k']}","fps=30","crop=2880:1800:72:82",f"scale={VW}:{VH}:flags=lanczos",f"pad={W}:{H}:{VX}:0:color=0x0d1117"]
-        if D>vd: fl.append(f"tpad=stop_mode=clone:stop_duration={D-vd+0.1}")
-        fl+= [box(*bx) for bx in s.get('boxes',[])]
-        vin=['-ss',str(s['a']),'-t',str(s['b']-s['a']),'-i',SRC,'-i',f'band{i}.png']
-        vf=f"[0:v]{','.join(fl)}[v];[v][1:v]overlay=0:0,format=yuv420p"
-    ain=['-i',f'a{i}.aiff'] if ad else ['-f','lavfi','-t',f'{D}','-i','anullsrc=r=48000:cl=stereo']
-    ai=2 if ('card' not in s) else 1
-    af=f"[{ai}:a]adelay=300|300,apad,atrim=0:{D},aformat=sample_rates=48000:channel_layouts=stereo[a]" if ad else f"[{ai}:a]atrim=0:{D}[a]"
-    fc=(f"[0:v]{vf}[vo];" if 'card' in s else f"{vf}[vo];")+af
-    sp.run(['ffmpeg','-v','error','-y',*vin,*ain,'-filter_complex',fc,'-map','[vo]','-map','[a]','-t',f'{D}','-r','30',
-            '-c:v','libx264','-preset','medium','-crf','20','-c:a','aac','-b:a','160k',out],check=True)
-    parts.append(out); print(i,round(D,1),flush=True)
-open('list.txt','w').write(''.join(f"file '{p}'\n" for p in parts))
-sp.run(['ffmpeg','-v','error','-y','-f','concat','-safe','0','-i','list.txt','-c','copy','-movflags','+faststart',_os.path.join(OUT,'demo3-vscode-ES.mp4')],check=True)
-print('total',dur(_os.path.join(OUT,'demo3-vscode-ES.mp4')))
+def build():
+    _os.makedirs(WORK,exist_ok=True); _os.makedirs(OUT,exist_ok=True); _os.chdir(WORK)
+    parts=[]
+    cues=[]
+    offset=0
+    previous_subtitle=None
+    for i,s in enumerate(SEG):
+        ad=0
+        text=narration_text(s,previous_subtitle)
+        previous_subtitle=s.get('sub')
+        if text:
+            synthesize(phon(text),LANG,f'a{i}.wav'); ad=dur(f'a{i}.wav')
+        out=f'seg{i}.mp4'
+        if 'card' in s:
+            card(i,*s['card']); D=scene_duration(s.get('pause',0),ad,tail=0.9)
+            vin=['-loop','1','-t',f'{D}','-i',f'card{i}.png']; vf='format=yuv420p'
+        else:
+            band(i,s['part'],s.get('sub'),s['k'] if s['k']>1 else None)
+            vd=(s['b']-s['a'])/s['k']; D=scene_duration(vd,ad)
+            fl=[f"setpts=(PTS-STARTPTS)/{s['k']}","fps=30","crop=2880:1800:72:82",f"scale={VW}:{VH}:flags=lanczos",f"pad={W}:{H}:{VX}:0:color=0x0d1117"]
+            if D>vd: fl.append(f"tpad=stop_mode=clone:stop_duration={D-vd+0.1}")
+            fl+= [box(*bx) for bx in s.get('boxes',[])]
+            vin=['-ss',str(s['a']),'-t',str(s['b']-s['a']),'-i',SRC,'-i',f'band{i}.png']
+            vf=f"[0:v]{','.join(fl)}[v];[v][1:v]overlay=0:0,format=yuv420p"
+        fc=f"[0:v]{vf}[vo]" if 'card' in s else f"{vf}[vo]"
+        sp.run(['ffmpeg','-v','error','-y',*vin,'-filter_complex',fc,'-map','[vo]','-an','-t',f'{D}','-r','30',
+                '-c:v','libx264','-preset','medium','-crf','20',out],check=True)
+        cues.append(dict(text=text, spoken_text=phon(text) if text else None,
+            subtitle=s.get('sub'), wav=_os.path.abspath(f'a{i}.wav') if text else None,
+            start=offset, duration=D, audio_start=offset+0.3, audio_duration=ad))
+        offset+=D
+        parts.append(out); print(i,round(D,1),flush=True)
+    open('list.txt','w').write(''.join(f"file '{p}'\n" for p in parts))
+    write_audio_track(cues,'voice.wav')
+    sp.run(['ffmpeg','-v','error','-y','-f','concat','-safe','0','-i','list.txt','-i','voice.wav','-map','0:v','-map','1:a','-c:v','copy','-c:a','aac','-b:a','160k','-movflags','+faststart',_os.path.join(OUT,'demo3-vscode-ES.mp4')],check=True)
+    write_manifest(_os.path.join(OUT,f'demo3-vscode-{LANG.upper()}.mp4'),LANG,cues)
+    print('total',dur(_os.path.join(OUT,'demo3-vscode-ES.mp4')))
+
+if __name__=='__main__':
+    build()
