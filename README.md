@@ -29,3 +29,8 @@ Each language folder contains the same 16-slide deck with speaker notes and embe
 - Original talk & demos: https://github.com/githubevents/build-once-run-on-any-agent
 - Blog: https://github.blog/ai-and-ml/github-copilot/build-once-run-on-any-agent-a-practical-guide-to-agent-skills/
 - Demo 2 repo: https://github.com/micheliknechtel/support-desk-dataforge
+
+## Edit & regenerate (for maintainers)
+The [`source/`](source/) folder contains all scripts, texts, notes and assets to rebuild every video and deck — see [`source/README.md`](source/README.md).
+Full kit as a single zip (includes the 334 MB VS Code screen recording needed for demo 3):
+https://github.com/micheliknechtel/build-once-run-on-any-agent-talk/releases/tag/source-kit-v1

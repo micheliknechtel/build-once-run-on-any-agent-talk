@@ -1,0 +1,25 @@
+0.0	Gut, kommen wir zur Demo.
+2.58	Das ist die Datei des Proof-Agent-Skills. Sie enthält das Verfahren für den Prüfer.
+9.54	Er bekommt zwei Dinge: die ursprüngliche Anfrage und den Diff. Was verlangt wurde, und was sich wirklich geändert hat.
+16.42	Die Meinung des Agenten, der den Code schrieb, bekommt er nicht. So urteilt er, ohne dessen Schlüsse zu übernehmen.
+24.36	Setzen wir das in die Praxis um. Das ist der GitHub-Actions-Workflow von Team X-Ray. Er führt den Skill auf einem Pull Request aus.
+32.34	Eine Einstellung fällt auf: block on fail, auf false. Das ist Absicht.
+37.18	Hier veröffentlicht der Prüfer seine Ergebnisse, blockiert aber nicht den Merge. CI, CodeQL und das Dependency-Audit bleiben Pflicht.
+46.82	Wir lesen seine Begründung, diskutieren die Ergebnisse und entscheiden, was wir korrigieren. Aber den Merge-Knopf bekommt er nicht.
+54.92	Was passiert bei einer echten Änderung?
+58.24	Das ist PR 75. Er ändert das Rendering der Berichte und die Release-Automatisierung.
+65.38	Der Prüfer hat also eine konkrete Aussage zu prüfen: Passt der Code zur Beschreibung?
+71.18	Und was passiert im geänderten Code? Wir suchen Belege, die man im Diff findet: eine Datei, eine Zeile.
+82.42	Was hat er gefunden? Erstes Urteil: FAIL, mit zwei schweren Problemen.
+87.10	Ein Release-Tag landet direkt in einem Shell-Befehl: Gefahr von Command Injection.
+95.34	Nicht maskierte Daten landen im HTML des Berichts: Gefahr von XSS.
+102.58	Beide zeigen auf konkreten Code. Wir wissen genau, was zu korrigieren ist.
+108.82	Funktioniert die Korrektur wirklich? Hier ist der Fix-Commit, für das Berichts-Rendering und den Release-Upload.
+116.18	Aber ein Fix allein reicht nicht. Wir starten den Prüfer erneut auf dem neuen Diff. Er muss zeigen, wo der Fix jedes Problem löst.
+130.66	Diesmal bleiben Fragen offen. Das Urteil ist PARTIAL: Die Injection ist behoben, aber es gibt Zweifel bei den Avataren und der CI-Konfiguration.
+142.68	Diese Nuance ist wichtig: Was nicht bestätigt werden konnte, ist nicht unbedingt kaputt. Wir müssen wissen, was gelöst ist und was noch zu prüfen bleibt.
+155.38	Und was deckt ein PASS ab? Hier nur diesen Diff. Es bescheinigt nicht, dass die ganze Anwendung sicher ist.
+164.90	Wir verfolgen das Ergebnis im Actions-Run: 42 Sekunden, alles grün. Der Job ist fertig, aber wir lesen trotzdem das Urteil.
+176.14	Über den Kommentar im PR kann ein anderer Entwickler diesen Run öffnen und sehen, was passiert ist. Er muss uns nicht einfach glauben. Er kann den Belegen folgen und das Ergebnis anfechten.
+194.66	Und wenn etwas offen bleibt, wie hier mit PARTIAL bei einer Frage zu Workflow-Berechtigungen, lassen wir es offen. Fehlender Kontext wird nicht zu einer selbstsicheren Antwort.
+208.54	Das war die Demo: Probleme gefunden und behoben, mit klarem Umfang. „Ich weiß es nicht“ gehört zur Prüfung. Und hier sagt uns der Agent genau, wo ein Mensch noch hinschauen muss.

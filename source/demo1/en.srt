@@ -1,0 +1,340 @@
+1
+00:00:00,000 --> 00:00:02,580
+ All right, onto the demo.
+
+2
+00:00:02,580 --> 00:00:05,160
+ So here's a proof agent skill file.
+
+3
+00:00:05,160 --> 00:00:09,540
+ It contains the procedure we want the verifier to follow.
+
+4
+00:00:09,540 --> 00:00:13,040
+ We give it two things, the original request and the diff.
+
+5
+00:00:13,040 --> 00:00:16,420
+ So what did we ask for and what actually changed?
+
+6
+00:00:16,420 --> 00:00:18,940
+ We leave out the workers self-assessment
+
+7
+00:00:18,940 --> 00:00:21,380
+ so the verifier can inspect the work
+
+8
+00:00:21,380 --> 00:00:24,360
+ without inheriting the workers conclusion.
+
+9
+00:00:24,360 --> 00:00:26,700
+ Now let's put that procedure to work.
+
+10
+00:00:26,700 --> 00:00:29,260
+ This is team X-rays GitHub Actions workflow.
+
+11
+00:00:29,260 --> 00:00:32,340
+ It takes the skill and runs it against a pull request.
+
+12
+00:00:32,340 --> 00:00:34,180
+ There is one setting I want you to notice,
+
+13
+00:00:34,180 --> 00:00:36,180
+ block on fail, false.
+
+14
+00:00:36,180 --> 00:00:37,180
+ That's deliberate.
+
+15
+00:00:37,180 --> 00:00:40,020
+ In this particular repo, the verifier posts findings,
+
+16
+00:00:40,020 --> 00:00:42,180
+ but it's better it doesn't block a merge.
+
+17
+00:00:42,180 --> 00:00:44,420
+ CI, CoQL, and the dependency audit
+
+18
+00:00:44,420 --> 00:00:46,820
+ still enforce the merge requirements.
+
+19
+00:00:46,820 --> 00:00:48,660
+ We can inspect the agent's reasoning,
+
+20
+00:00:48,660 --> 00:00:51,820
+ challenges findings, and decide what needs fixing,
+
+21
+00:00:51,820 --> 00:00:53,500
+ but we haven't given its judgment control
+
+22
+00:00:53,500 --> 00:00:54,920
+ of the merge bottom.
+
+23
+00:00:54,920 --> 00:00:58,240
+ So what happens when we give it a real change?
+
+24
+00:00:58,240 --> 00:01:02,740
+ This is a PR 75, fixed release team aware reports.
+
+25
+00:01:02,740 --> 00:01:05,380
+ It changes report rendering and release automation.
+
+26
+00:01:05,380 --> 00:01:08,940
+ That gives the verifier a concrete claim to check.
+
+27
+00:01:08,940 --> 00:01:11,180
+ Does the code support that description?
+
+28
+00:01:11,180 --> 00:01:15,480
+ And what happens along the paths that this changes touches?
+
+29
+00:01:15,480 --> 00:01:17,500
+ We're looking for evidence that we can follow back
+
+30
+00:01:17,500 --> 00:01:21,560
+ into the diff, a file, a line, the code behind the finding.
+
+31
+00:01:22,420 --> 00:01:23,580
+ And so what did it catch?
+
+32
+00:01:23,580 --> 00:01:27,100
+ The first verdict is failed with two findings marked high.
+
+33
+00:01:27,100 --> 00:01:30,220
+ The verifier flags a release tag interpolated
+
+34
+00:01:30,220 --> 00:01:32,020
+ directly into a shell command,
+
+35
+00:01:32,020 --> 00:01:35,340
+ creating a command injection risk.
+
+36
+00:01:35,340 --> 00:01:39,660
+ It also flags unskipped data going into the report's HTML,
+
+37
+00:01:39,660 --> 00:01:42,580
+ creating the XSS risk in the web view.
+
+38
+00:01:42,580 --> 00:01:45,100
+ Both findings point to a specific code
+
+39
+00:01:45,100 --> 00:01:48,820
+ that gives us something concrete to go investigate and fix.
+
+40
+00:01:48,820 --> 00:01:50,820
+ So did the fix actually fix it?
+
+41
+00:01:50,820 --> 00:01:52,900
+ Well, here's the correction commit.
+
+42
+00:01:52,900 --> 00:01:56,180
+ Harder and report rendering and the release upload.
+
+43
+00:01:56,180 --> 00:01:58,640
+ But adding a fix doesn't sell the question.
+
+44
+00:01:58,640 --> 00:02:02,180
+ We run the verifier again against the updated diff.
+
+45
+00:02:02,180 --> 00:02:05,040
+ Now it needs to show where the correction addresses
+
+46
+00:02:05,040 --> 00:02:07,580
+ the findings of fix and a commit message
+
+47
+00:02:07,580 --> 00:02:09,760
+ still needs the evidence behind it.
+
+48
+00:02:10,660 --> 00:02:13,680
+ So at this time, we still have some issues open.
+
+49
+00:02:13,680 --> 00:02:14,980
+ The verdict is partial.
+
+50
+00:02:14,980 --> 00:02:18,180
+ Reports, the verifier reports the injection issue fix,
+
+51
+00:02:18,180 --> 00:02:20,340
+ but leaves questions about avatar handling
+
+52
+00:02:20,340 --> 00:02:22,680
+ and the CI configuration.
+
+53
+00:02:22,680 --> 00:02:25,100
+ That distinction matters when you're reading the results
+
+54
+00:02:25,100 --> 00:02:26,660
+ because something you couldn't confirm
+
+55
+00:02:26,660 --> 00:02:30,380
+ is not automatically something that is broken.
+
+56
+00:02:30,380 --> 00:02:32,820
+ We need to know which concern was resolved
+
+57
+00:02:32,820 --> 00:02:35,380
+ and what still needs investigation.
+
+58
+00:02:35,380 --> 00:02:36,940
+ So what is pass cover?
+
+59
+00:02:36,940 --> 00:02:40,100
+ Here we get a pass for the controls inspected on this diff.
+
+60
+00:02:40,100 --> 00:02:41,180
+ That's scope.
+
+61
+00:02:41,180 --> 00:02:43,580
+ It doesn't certify the whole application as secure.
+
+62
+00:02:44,900 --> 00:02:48,080
+ So we can follow up on the result from the actions run.
+
+63
+00:02:48,080 --> 00:02:50,700
+ That verify took 42 seconds and finished green.
+
+64
+00:02:50,700 --> 00:02:53,260
+ So that tells us that the job actually completed.
+
+65
+00:02:53,260 --> 00:02:56,140
+ We still read the verdict to understand what I found.
+
+66
+00:02:56,140 --> 00:02:57,860
+ But from that PR comment,
+
+67
+00:02:57,860 --> 00:03:00,100
+ another developer can come and open this run
+
+68
+00:03:00,100 --> 00:03:01,420
+ and inspect what happened.
+
+69
+00:03:01,420 --> 00:03:03,540
+ They don't have to take my explanation
+
+70
+00:03:03,540 --> 00:03:06,580
+ or the agents handlined on good faith.
+
+71
+00:03:06,580 --> 00:03:09,540
+ And that is what makes this useful in a team setting
+
+72
+00:03:09,540 --> 00:03:12,180
+ because someone else can actually follow the evidence
+
+73
+00:03:12,180 --> 00:03:13,780
+ and challenge the conclusion.
+
+74
+00:03:14,660 --> 00:03:16,360
+ And if something stays unresolved
+
+75
+00:03:16,360 --> 00:03:19,100
+ like this firing over it here, which is partial,
+
+76
+00:03:19,100 --> 00:03:21,500
+ then there's a workflow permission question
+
+77
+00:03:21,500 --> 00:03:24,500
+ where the verifier couldn't resolve from the diff to long.
+
+78
+00:03:24,500 --> 00:03:27,060
+ So we leave it open rather than turning missing context
+
+79
+00:03:27,060 --> 00:03:28,540
+ into a confident answer.
+
+80
+00:03:28,540 --> 00:03:30,300
+ That's where I wanna end this demo.
+
+81
+00:03:30,300 --> 00:03:33,220
+ We've seen findings, corrections and conclusions
+
+82
+00:03:33,220 --> 00:03:35,060
+ with a defined scope.
+
+83
+00:03:35,060 --> 00:03:38,100
+ I don't know, needs a place in your verification workflow.
+
+84
+00:03:38,100 --> 00:03:40,780
+ And here it tells us exactly where human follow up
+
+85
+00:03:40,780 --> 00:03:41,780
+ is still needed.
+

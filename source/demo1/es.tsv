@@ -1,0 +1,25 @@
+0.0	Bueno, vamos a la demo.
+2.58	Este es el archivo de la skill Proof Agent. Contiene el procedimiento que debe seguir el verificador.
+9.54	Le damos dos cosas: la petición original y el diff. Lo que se pidió, y lo que cambió de verdad.
+16.42	No le damos la opinión del agente que escribió el código. Así juzga el trabajo sin copiar sus conclusiones.
+24.36	Pongamos este procedimiento en práctica. Este es el workflow de GitHub Actions de Team X-Ray. Ejecuta la skill en una pull request.
+32.34	Un ajuste a destacar: block on fail, en false. Es a propósito.
+37.18	En este repo, el verificador publica sus resultados, pero no bloquea el merge. La CI, CodeQL y la auditoría de dependencias siguen siendo obligatorias.
+46.82	Podemos leer el razonamiento del agente, discutir sus resultados y decidir qué corregir. Pero no le damos el botón de merge.
+54.92	¿Qué pasa con un cambio real?
+58.24	Esta es la PR 75. Modifica el renderizado de los informes y la automatización de las releases.
+65.38	El verificador tiene algo concreto que comprobar: ¿el código corresponde a la descripción?
+71.18	¿Y qué pasa en el código modificado? Buscamos pruebas que se puedan encontrar en el diff: un archivo, una línea.
+82.42	¿Qué ha encontrado? Primer veredicto: FAIL, con dos problemas graves.
+87.10	Un tag de release se inserta directamente en un comando de shell: riesgo de inyección de comandos.
+95.34	Datos sin escapar llegan al HTML del informe: riesgo de XSS.
+102.58	Los dos apuntan a código concreto. Sabemos exactamente qué corregir.
+108.82	¿La corrección funciona de verdad? Este es el commit de corrección, del renderizado de informes y la subida de la release.
+116.18	Pero añadir un parche no basta. Volvemos a lanzar el verificador sobre el nuevo diff. Debe mostrar dónde la corrección resuelve cada problema.
+130.66	Esta vez quedan preguntas. El veredicto es PARTIAL: la inyección está corregida, pero quedan dudas sobre los avatares y la configuración de la CI.
+142.68	Este matiz es importante: lo que no se pudo confirmar no está necesariamente roto. Hay que saber qué está resuelto, y qué queda por verificar.
+155.38	¿Y qué cubre un PASS? Aquí, solo este diff. No certifica que toda la aplicación sea segura.
+164.90	Podemos seguir el resultado en el run de Actions: 42 segundos, todo en verde. El job ha terminado, pero aun así leemos el veredicto.
+176.14	Desde el comentario de la PR, otro desarrollador puede abrir este run y ver qué pasó. No tiene que creernos. Puede seguir las pruebas y discutir la conclusión.
+194.66	Y si algo queda abierto, como aquí con PARTIAL, sobre los permisos del workflow, lo dejamos abierto. No convertimos una falta de contexto en una respuesta segura.
+208.54	Eso es todo para esta demo: problemas encontrados, corregidos, con un alcance claro. «No lo sé» tiene su sitio en la verificación. Y aquí, el agente nos dice exactamente dónde un humano aún debe mirar.
