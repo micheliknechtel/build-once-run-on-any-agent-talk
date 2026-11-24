@@ -1,10 +1,14 @@
 import subprocess as sp, textwrap, struct
 import os as _os
 ROOT=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+import sys, math
+sys.path.insert(0, ROOT)
+from speech import pcm
+from narration import scene_duration, write_manifest
 A=lambda f:_os.path.join(ROOT,'assets',f)
 LANG='en'
-WORK=_os.path.join(ROOT,'build','demo2-'+LANG); _os.makedirs(WORK,exist_ok=True); _os.chdir(WORK)
-OUT=_os.path.join(ROOT,'output',LANG.upper()); _os.makedirs(OUT,exist_ok=True)
+WORK=_os.path.join(ROOT,'build','demo2-'+LANG)
+OUT=_os.path.join(ROOT,'output',LANG.upper())
 from PIL import Image, ImageDraw, ImageFont
 W,H,FPS=1920,1080,30
 BG=(13,17,23); PANEL=(22,27,34); WHITE=(240,246,252); GREY=(139,148,158)
@@ -22,9 +26,7 @@ def phon(t):
     return t
 def tts(i,txt):
     txt=phon(txt)
-    sp.run(['say','-v','Daniel','-r','175','-o',f'a{i}.aiff',txt],check=True)
-    raw=sp.check_output(['ffmpeg','-v','error','-i',f'a{i}.aiff','-f','s16le','-ac','1','-ar',str(SR),'-'])
-    return raw
+    return pcm(txt,LANG,f'a{i}.wav',SR)
 
 def frame_base(step,title):
     im=Image.new('RGB',(W,H),BG); d=ImageDraw.Draw(im)
@@ -161,47 +163,68 @@ def PLAN(t,s):
         d.text((680,y+40),name.capitalize() if False else name,font=B(44),fill=WHITE,anchor='lm')
     return im,d
 S=[
- ("Demo two. Everything you are about to see is real: a real GitHub repo, a real issue, and Copilot CLI running the skills.",intro),
- ("The demo has four parts: I set up the project, the skills do the work, we check the result, and finally we switch databases.",PLAN),
- ("First, the setup. No skill is working yet.",CARD(1)),
- ("Step one: I prepare the project. I write a small manifest, just a few lines: the project is called support-desk, and the database is DuckDB.",P(1,T('STEP 1',"I write the manifest",MAN,typed=True))),
- ("Why does this matter? The skills contain no information about the project. They only say how to work.",P(1,T('STEP 1',"I write the manifest",MAN,note='# The project lives here. The skills: only how to work.'))),
- ("Now the demo starts. From here on, the skills do the work.",CARD(2)),
- ("Step two: I ask Copilot to initialize dataforge.",P(2,T('STEP 2',"The agent completes the manifest",INIT,typed=True))),
- ("The forge-init skill looks into the database, and completes the manifest with what it finds: two zones, and three levels of detail.",P(2,T('STEP 2',"The agent completes the manifest",INIT2,note="# I write the address, the agent draws the map."))),
- ("Step three: I create the support issue, with the gh command.",P(2,T('STEP 3','The issue',ISS,typed=True))),
- ("Here it is. It asks to count open and resolved incidents, just like for tickets.",P(2,IMG('STEP 3','The issue (#1)',IS,(170,190,1100,745),'What the business wants:',['open incidents','resolved incidents','same views as tickets','in both zones']))),
- ("This request is vague, on purpose: I give no technical instructions. It is up to the agent to turn this need into a pipeline.",P(2,IMG('STEP 3','The issue (#1)',IS,(170,190,1100,745),'What the business wants:',['open incidents','resolved incidents','same views as tickets','in both zones','→ vague, on purpose','→ no technical instructions']))),
- ("Step four: one single sentence to Copilot: build the metrics in issue number one.",P(2,T('STEP 4',"I hand the issue to the agent",[('cmd','copilot -p "build the metrics in issue #1"'),('out','● skill(forge-builder)')],typed=True))),
- ("Step five: the forge-builder skill runs seven phases.",P(2,PHASES(0,1))),
- ("It reads the issue, explores the database, and designs the metrics.",P(2,PHASES(3,3))),
- ("It creates the tables, writes the pipelines, and tests them.",P(2,PHASES(6,7))),
- ("Then it deploys to both zones, and opens a pull request.",P(2,PHASES(7,10))),
- ("In real life, this took eleven minutes. Live, a human approves each step.",P(2,PHASES(7,10,'⏱ 11 min 27 s (real)'))),
- ("The skills are done. Now, let's check the result.",CARD(3)),
- ("Step six: the result, right in the issue.",P(3,IMG('STEP 6',"The result, in the issue",IS,(186,1008,1095,1530),"The agent wrote:",['6 tables per zone','4 months of history','numbers = the source']))),
- ("The agent explains what it did: six tables per zone, four months of history, and numbers identical to the source. Then it closes the issue.",P(3,IMG('STEP 6',"The result, in the issue",IS,(186,1008,1095,1530),"The agent wrote:",['6 tables per zone','4 months of history','numbers = the source','→ issue closed']))),
- ("Step seven: it also opens a pull request.",P(3,IMG('STEP 7','Pull request #2',PR,(192,192,1062,800),'In the PR:',['15 files','+625 lines','tests passed']))),
- ("It is not merged: a human reviews it, and decides.",P(3,IMG('STEP 7','Pull request #2',PR,(192,192,1062,800),'In the PR:',['15 files','+625 lines','tests passed','→ a human decides']))),
- ("Step eight: I check for myself. The issue is indeed closed.",P(3,T('STEP 8','I check for myself',VER,typed=True))),
- ("And in the database: two hundred sixty-one incidents created, fifty-four resolved.",P(3,T('STEP 8','I check for myself',VER+[('blank',''),('cmd',SQL)]+TAB,typed=True))),
- ("One last question: what if tomorrow, we move to Databricks?",CARD(4)),
- ("Only one line changes in the manifest. The four skills do not change.",P(4,T('BONUS','What about Databricks?',[('out','platform:'),('ok','  engine: "databricks"')],note='# One line. The 4 skills do not change.'))),
- ("That is the whole point: you write the skills once, and they work everywhere.",P(4,T('BONUS','What about Databricks?',[('out','platform:'),('ok','  engine: "databricks"')],note='# Written once. They work everywhere.'))),
+ ("Welcome to demo two. This walkthrough follows a real GitHub repository, a real issue, and a real run of the Dataforge skills in Copilot CLI.",intro),
+ ("We'll follow four stages: set up the project, let the skills do the work, check the results, and look at switching database platforms.",PLAN),
+ ("First, the setup. At this point, none of the skills has run.",CARD(1)),
+ ("I start with a short manifest. It names the project, support-desk, and sets DuckDB as the database engine.",P(1,T('STEP 1',"I write the manifest",MAN,typed=True))),
+ ("The distinction matters: the manifest describes this project. The skills describe how to work, without hard-coding project details.",P(1,T('STEP 1',"I write the manifest",MAN,note='# The project lives here. The skills: only how to work.'))),
+ ("With that context in place, I hand over to the skills.",CARD(2)),
+ ("Next, I ask Copilot to initialize Dataforge.",P(2,T('STEP 2',"The agent completes the manifest",INIT,typed=True))),
+ ("The forge-init skill inspects the database and fills in the manifest. It discovers two zones and three levels of detail: account, workspace, and user.",P(2,T('STEP 2',"The agent completes the manifest",INIT2,note="# I write the address, the agent draws the map."))),
+ ("Then I create a support issue using the GitHub command line.",P(2,T('STEP 3','The issue',ISS,typed=True))),
+ ("The request is simple: count incidents opened and resolved, using the same views we already have for tickets, in both zones.",P(2,IMG('STEP 3','The issue (#1)',IS,(170,190,1100,745),'What the business wants:',['open incidents','resolved incidents','same views as tickets','in both zones']))),
+ ("It's deliberately light on technical detail. I describe the business need; the agent has to work out how to turn it into a pipeline.",P(2,IMG('STEP 3','The issue (#1)',IS,(170,190,1100,745),'What the business wants:',['open incidents','resolved incidents','same views as tickets','in both zones','→ vague, on purpose','→ no technical instructions']))),
+ ("My instruction to Copilot is just one sentence: build the metrics in issue number one.",P(2,T('STEP 4',"I hand the issue to the agent",[('cmd','copilot -p "build the metrics in issue #1"'),('out','● skill(forge-builder)')],typed=True))),
+ ("The forge-builder skill now guides the agent through seven phases.",P(2,PHASES(0,1))),
+ ("First, it reads the issue, explores the database, and designs the metrics.",P(2,PHASES(3,3))),
+ ("Then it creates the tables, writes the pipelines, and runs the tests.",P(2,PHASES(6,7))),
+ ("Finally, it deploys to both zones and opens a pull request.",P(2,PHASES(7,10))),
+ ("The actual run took eleven minutes and twenty-seven seconds. During the run, a human approves each step.",P(2,PHASES(7,10,'⏱ 11 min 27 s (real)'))),
+ ("The work is complete. Now let's check what the agent actually delivered.",CARD(3)),
+ ("We start with the summary posted back to the original issue.",P(3,IMG('STEP 6',"The result, in the issue",IS,(186,1008,1095,1530),"The agent wrote:",['6 tables per zone','4 months of history','numbers = the source']))),
+ ("The agent reports six tables per zone, four months of history, and totals that match the source data. It also closes the issue.",P(3,IMG('STEP 6',"The result, in the issue",IS,(186,1008,1095,1530),"The agent wrote:",['6 tables per zone','4 months of history','numbers = the source','→ issue closed']))),
+ ("The pull request contains fifteen changed files and six hundred and twenty-five added lines. The tests have passed.",P(3,IMG('STEP 7','Pull request #2',PR,(192,192,1062,800),'In the PR:',['15 files','+625 lines','tests passed']))),
+ ("But the pull request is not merged. A human still reviews the changes and makes that decision.",P(3,IMG('STEP 7','Pull request #2',PR,(192,192,1062,800),'In the PR:',['15 files','+625 lines','tests passed','→ a human decides']))),
+ ("I also verify the result independently. First, the issue is confirmed closed.",P(3,T('STEP 8','I check for myself',VER,typed=True))),
+ ("Then I query the database: two hundred and sixty-one incidents created, and fifty-four resolved.",P(3,T('STEP 8','I check for myself',VER+[('blank',''),('cmd',SQL)]+TAB,typed=True))),
+ ("One final question: what changes if we move this project to Databricks?",CARD(4)),
+ ("In the manifest, I change the engine setting from DuckDB to Databricks. The same four skills stay exactly as they are.",P(4,T('BONUS','What about Databricks?',[('out','platform:'),('ok','  engine: "databricks"')],note='# One line. The 4 skills do not change.'))),
+ ("That's the idea: keep project context in the manifest, write the skills once, and reuse them across platforms.",P(4,T('BONUS','What about Databricks?',[('out','platform:'),('ok','  engine: "databricks"')],note='# Written once. They work everywhere.'))),
 ]
-audio=bytearray()
-ff=sp.Popen(['ffmpeg','-y','-v','error','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','-','-c:v','libx264','-pix_fmt','yuv420p','-crf','20','video.mp4'],stdin=sp.PIPE)
-for i,(txt,fn) in enumerate(S):
-    raw=tts(i,txt); a=len(raw)/2/SR
-    lead=0.4; tail=1.0; D=lead+a+tail
-    audio+=b'\0\0'*int(lead*SR)+raw+b'\0\0'*(int(D*SR)-int(lead*SR)-len(raw)//2)
-    n=int(round(D*FPS)); cache={}
-    for k in range(n):
-        im,d=fn(k/FPS,i); subtitle(d,txt); b=im.tobytes()
-        ff.stdin.write(b)
-    print(i,round(D,1),flush=True)
-ff.stdin.close(); ff.wait()
-open('audio.raw','wb').write(audio)
-sp.run('ffmpeg -y -v error -i video.mp4 -f s16le -ar 48000 -ac 1 -i audio.raw -c:v copy -c:a aac -b:a 160k -shortest out.mp4',shell=True,check=True)
-import shutil; shutil.copy('out.mp4',_os.path.join(OUT,'demo2-dataforge-EN.mp4'))
-print('done',dur('out.mp4'))
+
+def build():
+    _os.makedirs(WORK,exist_ok=True); _os.makedirs(OUT,exist_ok=True); _os.chdir(WORK)
+    segments=[tts(i,txt) for i,(txt,_) in enumerate(S)]
+    audio=bytearray()
+    cues=[]
+    offset=0
+    ff=sp.Popen(['ffmpeg','-y','-v','error','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W}x{H}','-r',str(FPS),'-i','-','-c:v','libx264','-pix_fmt','yuv420p','-crf','20','video.mp4'],stdin=sp.PIPE)
+    try:
+        for i,(txt,fn) in enumerate(S):
+            raw=segments[i]; a=len(raw)/2/SR
+            lead=0.4; tail=1.0; D=scene_duration(0,a,lead=lead,tail=tail,fps=FPS)
+            samples=round(D*SR)
+            audio+=b'\0\0'*int(lead*SR)+raw+b'\0\0'*(samples-int(lead*SR)-len(raw)//2)
+            n=round(D*FPS)
+            for k in range(n):
+                im,d=fn(k/FPS,i); subtitle(d,txt)
+                ff.stdin.write(im.tobytes())
+            cues.append(dict(text=txt,spoken_text=phon(txt),wav=_os.path.abspath(f'a{i}.wav'),
+                start=offset,duration=D,audio_start=offset+lead,audio_duration=a))
+            offset+=D
+            print(i,round(D,1),flush=True)
+    finally:
+        ff.stdin.close()
+        returncode=ff.wait()
+    if returncode:
+        raise RuntimeError("ffmpeg failed to encode the demo video")
+    open('audio.raw','wb').write(audio)
+    sp.run(['ffmpeg','-y','-v','error','-i','video.mp4','-f','s16le','-ar',str(SR),'-ac','1','-i','audio.raw','-c:v','copy','-c:a','aac','-b:a','160k','-movflags','+faststart','out.mp4'],check=True)
+    import shutil
+    output=_os.path.join(OUT,f'demo2-dataforge-{LANG.upper()}.mp4')
+    shutil.copy('out.mp4',output)
+    write_manifest(output,LANG,cues)
+    print('done',dur('out.mp4'))
+
+if __name__=='__main__':
+    build()

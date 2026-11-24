@@ -1,0 +1,23 @@
+[project]
+name = "build-once-run-on-any-agent-talk"
+version = "0.1.0"
+description = "Reproducible video narration and slide-deck builds."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "kokoro==0.9.4",
+    "pillow>=11,<12",
+    "python-pptx>=1,<2",
+    "reportlab>=4,<5",
+    "soundfile>=0.13,<0.14",
+    "spacy>=3.8,<3.9",
+    "transformers>=4.51,<5",
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pypi-mirror"
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
